@@ -1,193 +1,140 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import React, { FC, memo, useState, useRef, useEffect, useCallback } from 'react'
 import {
+
+    View,
     StyleSheet,
     Text,
-    View,
-    Image, Dimensions, FlatList, TouchableOpacity, RefreshControl,
-} from 'react-native';
+    FlatList,
+    ImageBackground,
+    Dimensions,
+    NativeSyntheticEvent,
+    NativeScrollEvent,
+    Share,
+    Alert,
+    TouchableOpacity, Image
+} from 'react-native'
 
 const colors = {
     gray: 'gray',
     black: '#000',
     white: 'white',
-    red: 'red',
-    lightGray: '#C8C8C8'
 }
 
-const initialImages = [
+const data = [
     {
-        id: 1,
-        productImage: require('~/assets/images/sweater.png'),
+        "id": 1,
+        "image": require('~/assets/images/sweater_2.png')
+    },
+
+    {
+        "id": 2,
+        "image": require('~/assets/images/trouser.png')
     },
     {
-        id: 2,
-        productImage: require('~/assets/images/sweater_2.png'),
+        "id": 3,
+        "image": require('~/assets/images/sweater.png')
     },
     {
-        id: 3,
-        productImage: require('~/assets/images/trouser.png'),
+        "id": 4,
+        "image": require('~/assets/images/trouser_2.png')
     },
     {
-        id: 4,
-        productImage: require('~/assets/images/trouser_2.png'),
-    },
-    {
-        id: 5,
-        productImage: require('~/assets/images/sweater_3.png'),
-    },
+        "id": 5,
+        "image": require('~/assets/images/sweater_3.png'),
+    }
 ];
 
-const additionalImages = [
-    require('~/assets/images/hat.png'),
-    require('~/assets/images/sweater.png'),
-    require('~/assets/images/sweater_2.png'),
-]
 
-const App = ({ navigation }) => {
-    const [index, setIndex] = useState(0);
-    const [images, setImages] = useState([]);
-    const [refreshing, setRefreshing] = useState(false);
+const { width } = Dimensions.get('screen');
 
-    const flatListRef = useRef();
-    const userSwipedRef = useRef(false);
+const Item: FC<typeof data[0]> = memo(({ image }) => {
 
-    const maxImagesCount = 10;
-
-    useEffect(() => {
-        setImages(initialImages)
-    }, [])
-
-    // Check, if we can add more images - add images
-    const loadMoreItems = () => {
-        if (images.length < maxImagesCount) {
-            const randomImageIndex = Math.floor(Math.random() * additionalImages.length)
-            const randomImage = additionalImages[randomImageIndex];
-            const newImages = [...images, { id: images.length + 1, productImage: randomImage }]
-            setImages(newImages);
+    const onShare = useCallback(async () => {
+        try {
+            const message = `${image}`;
+            const result = await Share.share({
+                message: message,
+                url: image,
+            });
+        } catch (error) {
+            Alert.alert(error.message);
         }
-    };
-
-    const onScroll = (event) => {
-
-        if (event.nativeEvent) {
-            const contentOffset = event.nativeEvent.contentOffset;
-            const viewSize = event.nativeEvent.layoutMeasurement;
-            const pageIndex = Math.floor(contentOffset.x / viewSize.width);
-            setIndex(pageIndex)
-
-            // Check, if scroll is finish - go back to the first index
-            if (pageIndex === images.length - 1) {
-                let firstInterval = setTimeout(() => {
-                    setImages(initialImages)
-                    flatListRef.current.scrollToIndex({ animated: true, index: 0 });
-                    clearTimeout(firstInterval)
-                }, 2000)
-            }
-        }
-    }
-
-    const onRefresh = () => {
-        setRefreshing(true);
-
-        setTimeout(() => {
-            setImages(initialImages);
-            setRefreshing(false);
-        }, 2000); // simulate network request delay
-    };
-
-    const onViewRef = useRef(({ changed }) => {
-        if (changed && changed.length > 0) {
-            const newIndex = changed[0].index;
-            if (newIndex !== index) {
-                setIndex(changed[0].index);
-                userSwipedRef.current = true;
-            }
-        }
-    });
-
-    const viewabilityConfig = useRef({
-        itemVisiblePercentThreshold: 50
-    });
-
-    const paginationDots = useMemo(() => {
-        const dotsListView = [];
-        const maxDotsNumber = 10;
-        const showDotsMax = 5;
-
-        let startPosition = index + 1;
-        if (startPosition < 1) {
-            startPosition = 0;
-        }
-
-        let endPosition = startPosition + maxDotsNumber;
-        if (endPosition > images.length) {
-            endPosition = images.length;
-            startPosition = endPosition - maxDotsNumber;
-            if (startPosition < 0) startPosition = 0;
-        }
-
-        function createRange(start, end) {
-            const range = [];
-            for (let i = start; i <= end; i++) {
-                range.push(i);
-            }
-            return range;
-        }
-
-        let diff = endPosition - showDotsMax;
-        let range = createRange(1, diff);
-
-        for (let i = startPosition; i < endPosition; i++) {
-            if (endPosition > showDotsMax) {
-                if (!range.includes(i)) {
-                    dotsListView.push(
-                        <View key={i} style={[styles.dot, i === index ? styles.activeDot : {}]}/>
-                    );
-                }
-            } else {
-                dotsListView.push(
-                    <View key={i} style={[styles.dot, i === index ? styles.activeDot : {}]}/>
-                );
-            }
-        }
-
-        return dotsListView;
-    }, [index, images.length]);
+    }, [image])
 
     return (
-        <View style={styles.container}>
-            <View style={styles.mainBlock}>
-                <View>
-                    <Text style={styles.sale}>
-                        Sale
-                    </Text>
-                </View>
-                <FlatList
-                    ref={flatListRef}
-                    data={images}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={({ item }) => (
-                        <Image style={styles.image} source={ item.productImage } />
-                    )}
-                    horizontal
-                    pagingEnabled
-                    onViewableItemsChanged={onViewRef.current}
-                    viewabilityConfig={viewabilityConfig.current}
-                    onScroll={onScroll}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                        />
-                    }
-                    scrollEventThrottle={16}
-                    onEndReached={loadMoreItems}
-                    onEndReachedThreshold={0.5}
-                />
-                <View style={styles.pagination}>
-                    {paginationDots}
-                </View>
+        <TouchableOpacity onPress={onShare} activeOpacity={1}>
+            <View style={styles.item}>
+                <ImageBackground
+                    source={ image }
+                    style={styles.image}
+                    resizeMode='cover'
+                >
+                </ImageBackground>
             </View>
+        </TouchableOpacity>
+    )
+})
+
+export const Carusel = () => {
+
+    const [activeIndex, setActiveIndex] = useState(0);
+    const listRef = useRef<FlatList>(null);
+    const timerRef = useRef(null);
+    const myRef = useRef(null);
+
+
+    useEffect(() => {
+        timerRef.current = setInterval(() => {
+            if (listRef.current) {
+                listRef.current.scrollToIndex({
+                    index: activeIndex === data.length - 1 ? 0 : activeIndex + 1,
+                    animated: activeIndex !== data.length - 1,
+                })
+            }
+        }, 5000)
+
+
+        return () => {
+            if (timerRef.current) {
+
+                clearInterval(timerRef.current);
+            }
+        }
+    }, [activeIndex])
+
+
+    const onScrollHandler = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        const slideSize = event.nativeEvent.layoutMeasurement.width;
+        const index = Math.round(event.nativeEvent.contentOffset.x / slideSize);
+
+        setActiveIndex(Math.round(index));
+    }, [])
+
+
+    return (
+        <View>
+            <Text style={styles.saleText}>
+                Sale
+            </Text>
+            <FlatList
+                ref={myRef}
+                data={data}
+                renderItem={({ item }) => <Item {...item} />}
+                keyExtractor={(item) => item.id.toString()}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+
+                onScroll={onScrollHandler}
+            />
+
+            <FlatList
+                contentContainerStyle={styles.paginationContainer}
+                data={data}
+                horizontal
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item, index }) => <View style={[styles.dot, activeIndex === index ? styles.dotActive : null]} />}
+            />
 
             <View style={styles.footer}>
                 <TouchableOpacity onPress={() => navigation.navigate('Home')}>
@@ -236,20 +183,47 @@ const App = ({ navigation }) => {
                 </View>
             </View>
         </View>
+
     )
 }
 
+
+export default memo(Carusel);
+
+
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
     item: {
-        padding: 20,
-        marginVertical: 8,
-        marginHorizontal: 16,
+        width: width,
+        height: 600,
     },
-    title: {
-        fontSize: 32
+    textContainer: {
+        backgroundColor: colors.black,
+        paddingVertical: 20,
+        paddingHorizontal: 10,
+    },
+    image: {
+        width: '100%',
+        height: '100%',
+        marginTop: 10
+    },
+    paginationContainer: {
+        flex: 1,
+        paddingVertical: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    dot: {
+        width: 10,
+        height: 10,
+        borderRadius: 20,
+        marginHorizontal: 5,
+        backgroundColor: colors.gray,
+        marginTop: 15
+    },
+    dotActive: {
+        backgroundColor: colors.black,
+        width: 10,
+        height: 10,
     },
     footer: {
         width: '100%',
@@ -272,43 +246,9 @@ const styles = StyleSheet.create({
         width: 25,
         height: 25,
     },
-    image: {
-        width: 350,
-        height: 600,
-        marginLeft: 40,
-        marginRight: 40,
-    },
-    pagination: {
-        flexDirection: 'row',
-        position: 'absolute',
-        alignSelf: 'center',
-        padding: 10,
-        bottom: -50,
-        zIndex: 1
-    },
-    hidden: {
-        display: 'none'
-    },
-    dot: {
-        width: 10,
-        height: 10,
-        backgroundColor: 'grey',
-        margin: 8,
-        borderRadius: 5
-    },
-    activeDot: {
-        backgroundColor: 'black'
-    },
-    mainBlock: {
-        height: 600,
-        marginTop: 50
-    },
-    sale: {
-        fontSize: 34,
+    saleText: {
+        fontSize: 33,
         fontWeight: 'bold',
-        marginBottom: 5,
-        marginLeft: 17
+        marginTop: 50,
     }
 })
-
-export default App
